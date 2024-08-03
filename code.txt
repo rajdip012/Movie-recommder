@@ -1,0 +1,105 @@
+import numpy as np
+import pandas as pd
+import ast
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import nltk
+from nltk.stem.porter import PorterStemmer
+
+# Load datasets
+movies = pd.read_csv('tmdb_5000_movies.csv')
+credits = pd.read_csv('tmdb_5000_credits.csv')
+
+# Merge datasets on the 'title' column
+movies = movies.merge(credits, on='title')
+
+# Select relevant columns
+movies = movies[['movie_id', 'keywords', 'genres', 'title', 'overview', 'cast', 'crew']]
+
+# Drop missing values
+movies.dropna(inplace=True)
+
+# Check for null values
+print(movies.isnull().sum())
+
+# Check for duplicate values
+print(movies.duplicated().sum())
+
+# Function to convert stringified lists of dictionaries to a list of names
+def convert(obj):
+    l = []
+    for i in ast.literal_eval(obj):
+        l.append(i['name'])
+    return l
+
+# Apply convert function to 'genres' and 'keywords' columns
+movies['genres'] = movies['genres'].apply(convert)
+movies['keywords'] = movies['keywords'].apply(convert)
+
+# Function to get the first 3 cast names
+def convert3(obj):
+    l = []
+    c = 0
+    for i in ast.literal_eval(obj):
+        if c != 3:
+            l.append(i['name'])
+            c += 1
+        else:
+            break
+    return l
+
+# Apply convert3 function to 'cast' column
+movies['cast'] = movies['cast'].apply(convert3)
+
+# Function to get the director's name
+def f(obj):
+    l = []
+    for i in ast.literal_eval(obj):
+        if i['job'] == 'Director':
+            l.append(i['name'])
+            break
+    return l
+
+# Apply function to 'crew' column
+movies['crew'] = movies['crew'].apply(f)
+
+# Create 'tags' column by combining 'overview', 'genres', 'keywords', 'cast', and 'crew'
+movies['tags'] = movies['overview'] + movies['genres'] + movies['keywords'] + movies['cast'] + movies['crew']
+
+# Create a new DataFrame with selected columns
+new_df = movies[['movie_id', 'title', 'tags']]
+
+# Join list items in 'tags' column to a single string and convert to lowercase
+new_df['tags'] = new_df['tags'].apply(lambda x: " ".join(x))
+new_df['tags'] = new_df['tags'].apply(lambda x: x.lower())
+
+# Initialize PorterStemmer
+ps = PorterStemmer()
+
+# Function to apply stemming
+def stem(text):
+    y = []
+    for i in text.split():
+        y.append(ps.stem(i))
+    return " ".join(y)
+
+# Apply stemming to 'tags' column
+new_df['tags'] = new_df['tags'].apply(stem)
+
+# Initialize CountVectorizer with a max of 5000 features and English stop words
+cv = CountVectorizer(max_features=5000, stop_words='english')
+vectors = cv.fit_transform(new_df['tags']).toarray()
+
+# Compute cosine similarity
+similarity = cosine_similarity(vectors)
+
+# Assign movie titles to 'title' column in new_df
+new_df['title'] = movies['title']
+
+# Function to recommend movies based on cosine similarity
+def recommend(movie):
+    movie_index = new_df[new_df['title'] == movie].index[0]
+    distances = similarity[movie_index]
+    movie_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
+    for i in movie_list:
+        print(new_df.iloc[i[0]].title)

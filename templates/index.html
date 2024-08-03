@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Recommender</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .title {
+            font-size: 40px;
+            margin: 20px 0;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .container select, .container input {
+            box-sizing: border-box; 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            font-size: 16px; 
+            margin-bottom: 10px; 
+            height: 40px; 
+        }
+
+        .container select {
+            -webkit-appearance: none; 
+            -moz-appearance: none; 
+            appearance: none; 
+            background-color: white; 
+            background-image: none; 
+        }
+
+        .button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .recommendations {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Movie Recommender</div>
+    <div class="container">
+        <form id="recommendation-form">
+            <select id="movie-dropdown" name="movie">
+                <option value="" disabled selected>Select a movie</option>
+                {% for title in titles %}
+                <option value="{{ title }}">{{ title }}</option>
+                {% endfor %}
+            </select>
+            
+            <input type="text" id="movie-search" placeholder="Type movie name" />
+            <button type="submit" class="button">Recommend</button>
+        </form>
+    </div>
+    <div class="recommendations" id="recommendations">
+        <!-- Recommendations will be displayed here -->
+    </div>
+
+    <script>
+        document.getElementById('recommendation-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // Get values from both dropdown and input field
+            const dropdownValue = document.getElementById('movie-dropdown').value;
+            const searchValue = document.getElementById('movie-search').value.trim();
+
+            // Determine which value to use (dropdown or search input)
+            const movie = searchValue.length > 0 ? searchValue : dropdownValue;
+
+            // Make the fetch request
+            fetch('/recommend', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({ movie: movie })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Received data:', data);
+
+                // Create a table to display the recommendations
+                const recommendationsDiv = document.getElementById('recommendations');
+                recommendationsDiv.innerHTML = '';  // Clear previous content
+
+                if (Array.isArray(data) && data.length > 0) {
+                    let table = '<table border="1" style="width: 100%; border-collapse: collapse;">';
+                    table += '<thead><tr><th>Recommended Movies</th></tr></thead>';
+                    table += '<tbody>';
+
+                    data.forEach(title => {
+                        table += `<tr><td>${title}</td></tr>`;
+                    });
+
+                    table += '</tbody></table>';
+                    recommendationsDiv.innerHTML = table;
+                } else {
+                    recommendationsDiv.innerHTML = '<p>No recommendations found.</p>';
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>
